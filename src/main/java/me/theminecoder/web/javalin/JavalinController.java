@@ -15,6 +15,7 @@ import java.lang.reflect.ParameterizedType;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -131,7 +132,7 @@ public class JavalinController {
             throw new IllegalArgumentException("Controller doesn't have the @Controller annotation");
         }
 
-        Arrays.stream(controllerClass.getMethods()).forEachOrdered(method -> {
+        Consumer<Method> registerMethod = method -> {
             List<Annotation> methodAnnotations = annotationMethodMap.keySet().stream()
                     .map(method::getAnnotation)
                     .filter(Objects::nonNull)
@@ -179,7 +180,11 @@ public class JavalinController {
 
             annotationMethodMap.get(annotation.annotationType()).apply(app).accept(routeString, ctx -> callMethod(ctx, controllerClass, controllerObject, method));
             System.out.println("Registered " + annotation.annotationType().getSimpleName() + " method " + method + " on " + routeString);
-        });
+        };
+
+        Arrays.stream(controllerClass.getMethods()).filter(method -> method.getAnnotation(Before.class) != null).forEach(registerMethod);
+        Arrays.stream(controllerClass.getMethods()).filter(method -> method.getAnnotation(Before.class) == null && method.getAnnotation(After.class) == null).forEach(registerMethod);
+        Arrays.stream(controllerClass.getMethods()).filter(method -> method.getAnnotation(After.class) != null).forEach(registerMethod);
     }
 
     private static final Map<Class, Class> primitiveObjectTypes = new HashMap<Class, Class>() {{
@@ -269,7 +274,7 @@ public class JavalinController {
 
             if (response instanceof View) {
                 View view = (View) response;
-                ctx.render("/"+view.getViewName(), view.getData());
+                ctx.render("/" + view.getViewName(), view.getData());
                 return;
             }
 

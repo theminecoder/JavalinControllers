@@ -3,6 +3,7 @@ package test;
 import io.javalin.Context;
 import me.theminecoder.web.javalin.View;
 import me.theminecoder.web.javalin.annotations.Controller;
+import me.theminecoder.web.javalin.annotations.methods.After;
 import me.theminecoder.web.javalin.annotations.methods.Before;
 import me.theminecoder.web.javalin.annotations.methods.GET;
 import me.theminecoder.web.javalin.annotations.parameters.Query;
@@ -16,9 +17,14 @@ import java.util.Optional;
 @Controller("test")
 public class TestController extends ParentTestController {
 
-    @Before("/*")
+    @Before
     public void beforeTest() {
-        System.out.println("pls");
+        System.out.println("Before has been called");
+    }
+
+    @After
+    public void afterTest() {
+        System.out.println("After has been called");
     }
 
     @GET("view")
