@@ -84,6 +84,7 @@ public class JavalinController {
         });
         registerParameterMapper(QueryMap.class, (ctx, annotation, type) -> ctx.queryParamMap());
         registerParameterMapper(Header.class, (ctx, annotation, type) -> ctx.queryParam(annotation.value()));
+        registerParameterMapper(Path.class, (ctx, annotation, type) -> ctx.pathParam(annotation.value()));
         registerParameterMapper(HeaderMap.class, (ctx, annotation, type) -> ctx.headerMap());
 
         registerParameterValidator(NotNull.class, (annotation, obj) -> obj != null);
