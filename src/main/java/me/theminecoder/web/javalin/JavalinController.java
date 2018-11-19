@@ -13,10 +13,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.BiPredicate;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -40,10 +37,7 @@ public class JavalinController {
         annotationMethodMap.put(Before.class, app -> app::before);
         annotationMethodMap.put(After.class, app -> app::after);
 
-        registerParameterMapper(RequestContext.class, (ctx, annotation, type) -> ctx);
-        registerParameterMapper(Query.class, (ctx, annotation, type) -> {
-            //noinspection StringEquality
-            String value = ctx.queryParam(annotation.value(), annotation.defaultValue() == Query.NO_DEFAULT ? null : annotation.defaultValue());
+        BiFunction<String, Class, Object> valueConverter = (value, type) -> {
             if (value == null) return null;
             if (String.class.isAssignableFrom(type)) return value;
 
@@ -80,11 +74,27 @@ public class JavalinController {
                 return Boolean.valueOf(value);
             }
 
-            throw new IllegalArgumentException("Parameter type must be a primitive or String");
+            if (Enum.class.isAssignableFrom(type)) {
+                try {
+                    return type.getMethod("valueOf", String.class).invoke(null, value);
+                } catch (InvocationTargetException e) {
+                    return false;
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            throw new IllegalArgumentException("Parameter type must be a primitive, enum or a String");
+        };
+
+        registerParameterMapper(RequestContext.class, (ctx, annotation, type) -> ctx);
+        registerParameterMapper(Query.class, (ctx, annotation, type) -> {
+            //noinspection StringEquality
+            return valueConverter.apply(ctx.queryParam(annotation.value(), annotation.defaultValue() == Query.NO_DEFAULT ? null : annotation.defaultValue()), type);
         });
         registerParameterMapper(QueryMap.class, (ctx, annotation, type) -> ctx.queryParamMap());
         registerParameterMapper(Header.class, (ctx, annotation, type) -> ctx.queryParam(annotation.value()));
-        registerParameterMapper(Path.class, (ctx, annotation, type) -> ctx.pathParam(annotation.value()));
+        registerParameterMapper(Path.class, (ctx, annotation, type) -> valueConverter.apply(ctx.pathParam(annotation.value()), type));
         registerParameterMapper(HeaderMap.class, (ctx, annotation, type) -> ctx.headerMap());
 
         registerParameterValidator(NotNull.class, (annotation, obj) -> obj != null);
