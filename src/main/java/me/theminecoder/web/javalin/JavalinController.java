@@ -25,6 +25,56 @@ public class JavalinController {
     private static final Map<Class<? extends Annotation>, ParameterMapper<?>> parameterMappers = new HashMap<>();
     private static final Map<Class<? extends Annotation>, BiPredicate<?, Object>> parameterValidators = new HashMap<>();
 
+    private static final BiFunction<String, Class, Object> valueToPrimitiveConverter = (value, type) -> {
+        if (value == null) return null;
+        if (String.class.isAssignableFrom(type)) return value;
+
+        if (byte.class.isAssignableFrom(type) || Byte.class.isAssignableFrom(type)) {
+            return Byte.valueOf(value);
+        }
+
+        if (char.class.isAssignableFrom(type) || Character.class.isAssignableFrom(type)) {
+            if (value.length() != 1) throw new BadRequestResponse("Invalid character provided.");
+            return value.charAt(0);
+        }
+
+        if (short.class.isAssignableFrom(type) || Short.class.isAssignableFrom(type)) {
+            return Short.valueOf(value);
+        }
+
+        if (int.class.isAssignableFrom(type) || Integer.class.isAssignableFrom(type)) {
+            return Integer.valueOf(value);
+        }
+
+        if (long.class.isAssignableFrom(type) || Long.class.isAssignableFrom(type)) {
+            return Long.valueOf(value);
+        }
+
+        if (float.class.isAssignableFrom(type) || Float.class.isAssignableFrom(type)) {
+            return Float.valueOf(value);
+        }
+
+        if (double.class.isAssignableFrom(type) || Double.class.isAssignableFrom(type)) {
+            return Double.valueOf(value);
+        }
+
+        if (boolean.class.isAssignableFrom(type) || boolean.class.isAssignableFrom(type)) {
+            return Boolean.valueOf(value);
+        }
+
+        if (Enum.class.isAssignableFrom(type)) {
+            try {
+                return type.getMethod("valueOf", String.class).invoke(null, value);
+            } catch (InvocationTargetException e) {
+                return false;
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        throw new IllegalArgumentException("Parameter type must be a primitive, enum or a String");
+    };
+
     static {
         annotationMethodMap.put(GET.class, app -> app::get);
         annotationMethodMap.put(POST.class, app -> app::post);
@@ -37,64 +87,14 @@ public class JavalinController {
         annotationMethodMap.put(Before.class, app -> app::before);
         annotationMethodMap.put(After.class, app -> app::after);
 
-        BiFunction<String, Class, Object> valueConverter = (value, type) -> {
-            if (value == null) return null;
-            if (String.class.isAssignableFrom(type)) return value;
-
-            if (byte.class.isAssignableFrom(type) || Byte.class.isAssignableFrom(type)) {
-                return Byte.valueOf(value);
-            }
-
-            if (char.class.isAssignableFrom(type) || Character.class.isAssignableFrom(type)) {
-                if (value.length() != 1) throw new BadRequestResponse("Invalid character provided.");
-                return value.charAt(0);
-            }
-
-            if (short.class.isAssignableFrom(type) || Short.class.isAssignableFrom(type)) {
-                return Short.valueOf(value);
-            }
-
-            if (int.class.isAssignableFrom(type) || Integer.class.isAssignableFrom(type)) {
-                return Integer.valueOf(value);
-            }
-
-            if (long.class.isAssignableFrom(type) || Long.class.isAssignableFrom(type)) {
-                return Long.valueOf(value);
-            }
-
-            if (float.class.isAssignableFrom(type) || Float.class.isAssignableFrom(type)) {
-                return Float.valueOf(value);
-            }
-
-            if (double.class.isAssignableFrom(type) || Double.class.isAssignableFrom(type)) {
-                return Double.valueOf(value);
-            }
-
-            if (boolean.class.isAssignableFrom(type) || boolean.class.isAssignableFrom(type)) {
-                return Boolean.valueOf(value);
-            }
-
-            if (Enum.class.isAssignableFrom(type)) {
-                try {
-                    return type.getMethod("valueOf", String.class).invoke(null, value);
-                } catch (InvocationTargetException e) {
-                    return false;
-                } catch (ReflectiveOperationException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-
-            throw new IllegalArgumentException("Parameter type must be a primitive, enum or a String");
-        };
-
         registerParameterMapper(RequestContext.class, (ctx, annotation, type) -> ctx);
         registerParameterMapper(Query.class, (ctx, annotation, type) -> {
             //noinspection StringEquality
-            return valueConverter.apply(ctx.queryParam(annotation.value(), annotation.defaultValue() == Query.NO_DEFAULT ? null : annotation.defaultValue()), type);
+            return valueToPrimitiveConverter.apply(ctx.queryParam(annotation.value(), annotation.defaultValue() == Query.NO_DEFAULT ? null : annotation.defaultValue()), type);
         });
         registerParameterMapper(QueryMap.class, (ctx, annotation, type) -> ctx.queryParamMap());
         registerParameterMapper(Header.class, (ctx, annotation, type) -> ctx.queryParam(annotation.value()));
-        registerParameterMapper(Path.class, (ctx, annotation, type) -> valueConverter.apply(ctx.pathParam(annotation.value()), type));
+        registerParameterMapper(Path.class, (ctx, annotation, type) -> valueToPrimitiveConverter.apply(ctx.pathParam(annotation.value()), type));
         registerParameterMapper(HeaderMap.class, (ctx, annotation, type) -> ctx.headerMap());
 
         registerParameterValidator(NotNull.class, (annotation, obj) -> obj != null);
@@ -119,6 +119,10 @@ public class JavalinController {
 
     public static void registerController(Object controller, Javalin app) {
         actuallyRegisterController(controller.getClass(), controller, app);
+    }
+
+    public static BiFunction<String, Class, Object> getValueToPrimitiveConverter() {
+        return valueToPrimitiveConverter;
     }
 
     public static <T extends Annotation> void registerParameterMapper(Class<T> type, ParameterMapper<T> mapperFunction) {
