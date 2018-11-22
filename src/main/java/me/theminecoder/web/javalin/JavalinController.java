@@ -25,6 +25,8 @@ public class JavalinController {
     private static final Map<Class<? extends Annotation>, ParameterMapper<?>> parameterMappers = new HashMap<>();
     private static final Map<Class<? extends Annotation>, BiPredicate<?, Object>> parameterValidators = new HashMap<>();
 
+    private static final Map<Class<? extends Annotation>, BiPredicate<?, Context>> methodValidators = new HashMap<>();
+
     private static final BiFunction<String, Class, Object> valueToPrimitiveConverter = (value, type) -> {
         if (value == null) return null;
         if (String.class.isAssignableFrom(type)) return value;
@@ -139,6 +141,14 @@ public class JavalinController {
         }
 
         parameterValidators.put(type, validatorFunction);
+    }
+
+    public static <T extends Annotation> void registerMethodValidator(Class<T> type, BiPredicate<T, Context> validatorFunction) {
+        if (methodValidators.containsKey(type)) {
+            throw new IllegalStateException("Method validator already exists!");
+        }
+
+        methodValidators.put(type, validatorFunction);
     }
 
     private static void actuallyRegisterController(Class<?> controllerClass, Object controllerObject, Javalin app) {
@@ -273,6 +283,13 @@ public class JavalinController {
 
             args.add(optional ? Optional.of(arg) : arg);
         });
+
+        if (!Arrays.stream(method.getAnnotations()).allMatch(annotation -> {
+            if (!methodValidators.containsKey(annotation.annotationType())) return true;
+            return ((BiPredicate<Annotation, Context>) methodValidators.get(annotation.annotationType())).test(annotation, ctx);
+        })) {
+            throw new BadRequestResponse("Validation failed");
+        }
 
         try {
             Object response = method.invoke(actualController, args.toArray());
