@@ -11,6 +11,7 @@ import me.theminecoder.web.javalin.annotations.parameters.conditions.Regex;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.util.*;
 import java.util.function.*;
@@ -95,6 +96,29 @@ public class JavalinController {
             return valueToPrimitiveConverter.apply(ctx.queryParam(annotation.value(), annotation.defaultValue() == Query.NO_DEFAULT ? null : annotation.defaultValue()), type);
         });
         registerParameterMapper(QueryMap.class, (ctx, annotation, type) -> ctx.queryParamMap());
+        registerParameterMapper(Form.class, (ctx, annotation, type) -> {
+            //noinspection StringEquality
+            return valueToPrimitiveConverter.apply(ctx.formParam(annotation.value(), annotation.defaultValue() == Form.NO_DEFAULT ? null : annotation.defaultValue()), type);
+        });
+        registerParameterMapper(FormMulti.class, new ParameterMapper<FormMulti>() {
+            @Override
+            public Object map(Context ctx, FormMulti annotation, Class<?> type) {
+                return null; //ignored
+            }
+
+            @Override
+            public Object map(Context ctx, FormMulti annotation, Class<?> type, Parameter parameter) {
+                if (!List.class.isAssignableFrom(type)) {
+                    throw new IllegalStateException("Parameter tagged with @FormMulti must be a List");
+                }
+
+                Class internalType = (Class) ((ParameterizedType) parameter.getParameterizedType()).getActualTypeArguments()[0];
+
+                //noinspection StringEquality
+                return ctx.formParams(annotation.value()).stream().map(value -> valueToPrimitiveConverter.apply(value, internalType)).collect(Collectors.toList());
+            }
+        });
+        registerParameterMapper(FormMap.class, (ctx, annotation, type) -> ctx.formParamMap());
         registerParameterMapper(Header.class, (ctx, annotation, type) -> ctx.queryParam(annotation.value()));
         registerParameterMapper(Path.class, (ctx, annotation, type) -> valueToPrimitiveConverter.apply(ctx.pathParam(annotation.value()), type));
         registerParameterMapper(HeaderMap.class, (ctx, annotation, type) -> ctx.headerMap());
@@ -258,7 +282,7 @@ public class JavalinController {
                 return;
             }
 
-            arg = ((ParameterMapper<Annotation>) parameterMappers.get(valueAnnotation)).map(ctx, parameter.getAnnotation(valueAnnotation), argClass);
+            arg = ((ParameterMapper<Annotation>) parameterMappers.get(valueAnnotation)).map(ctx, parameter.getAnnotation(valueAnnotation), argClass, parameter);
 
             if (!Arrays.stream(parameter.getAnnotations()).allMatch(annotation -> {
                 if (!parameterValidators.containsKey(annotation.annotationType())) return true;
