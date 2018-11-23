@@ -200,7 +200,7 @@ public class JavalinController {
             if (methodPath.startsWith("/")) methodPath = methodPath.substring(1);
             if (methodPath.endsWith("/")) methodPath = methodPath.substring(0, methodPath.length() - 1);
 
-            if (methodPath.length() >= 1) methodPath = "/" + methodPath;
+            if (!routeString.endsWith("/") && methodPath.length() >= 1) methodPath = "/" + methodPath;
             routeString += methodPath;
 
             annotationMethodMap.get(annotation.annotationType()).apply(app).accept(routeString, ctx -> callMethod(ctx, controllerClass, controllerObject, method));
