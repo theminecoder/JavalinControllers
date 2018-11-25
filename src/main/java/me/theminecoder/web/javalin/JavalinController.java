@@ -1,6 +1,7 @@
 package me.theminecoder.web.javalin;
 
 import io.javalin.*;
+import io.javalin.json.JavalinJson;
 import me.theminecoder.web.javalin.annotations.Controller;
 import me.theminecoder.web.javalin.annotations.methods.*;
 import me.theminecoder.web.javalin.annotations.parameters.*;
@@ -122,6 +123,8 @@ public class JavalinController {
         registerParameterMapper(Header.class, (ctx, annotation, type) -> ctx.queryParam(annotation.value()));
         registerParameterMapper(Path.class, (ctx, annotation, type) -> valueToPrimitiveConverter.apply(ctx.pathParam(annotation.value()), type));
         registerParameterMapper(HeaderMap.class, (ctx, annotation, type) -> ctx.headerMap());
+        registerParameterMapper(Body.class, (ctx, annotation, type) -> valueToPrimitiveConverter.apply(ctx.body(), type));
+        registerParameterMapper(JsonBody.class, (ctx, annotation, type) -> JavalinJson.fromJson(ctx.body(), type));
 
         registerParameterValidator(NotNull.class, (annotation, obj) -> obj != null);
         registerParameterValidator(Range.class, (annotation, obj) -> {
