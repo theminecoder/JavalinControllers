@@ -29,6 +29,8 @@ public class JavalinController {
 
     private static final Map<Class<? extends Annotation>, BiPredicate<?, Context>> methodValidators = new HashMap<>();
 
+    private static final List<RegisteredRoute> registeredRoutes = new ArrayList<>();
+
     private static final BiFunction<String, Class, Object> valueToPrimitiveConverter = (value, type) -> {
         if (value == null) return null;
         if (String.class.isAssignableFrom(type)) return value;
@@ -154,6 +156,10 @@ public class JavalinController {
         return valueToPrimitiveConverter;
     }
 
+    public static List<RegisteredRoute> getRegisteredRoutes() {
+        return registeredRoutes.stream().sorted(Comparator.comparing(RegisteredRoute::getPath)).collect(Collectors.toList());
+    }
+
     public static <T extends Annotation> void registerParameterMapper(Class<T> type, ParameterMapper<T> mapperFunction) {
         if (parameterMappers.containsKey(type)) {
             throw new IllegalStateException("Parameter mapper already exists!");
@@ -231,7 +237,7 @@ public class JavalinController {
             routeString += methodPath;
 
             annotationMethodMap.get(annotation.annotationType()).apply(app).accept(routeString, ctx -> callMethod(ctx, controllerClass, controllerObject, method));
-            System.out.println("Registered " + annotation.annotationType().getSimpleName() + " method " + method + " on " + routeString);
+            registeredRoutes.add(new RegisteredRoute(routeString, annotation.annotationType(), method));
         };
 
         Arrays.stream(controllerClass.getMethods()).filter(method -> method.getAnnotation(Before.class) != null).forEach(registerMethod);
