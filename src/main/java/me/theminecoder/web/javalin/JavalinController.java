@@ -128,7 +128,7 @@ public class JavalinController {
         registerParameterMapper(Body.class, (ctx, annotation, type) -> valueToPrimitiveConverter.apply(ctx.body(), type));
         registerParameterMapper(JsonBody.class, (ctx, annotation, type) -> JavalinJson.fromJson(ctx.body(), type));
 
-        registerParameterValidator(NotNull.class, (annotation, obj) -> obj != null);
+        registerParameterValidator(NotNull.class, (annotation, obj) -> obj != null && (!(obj instanceof String) || ((String) obj).trim().length() > 0));
         registerParameterValidator(Range.class, (annotation, obj) -> {
             if (!(obj instanceof Number)) return false;
             Number number = (Number) obj;
