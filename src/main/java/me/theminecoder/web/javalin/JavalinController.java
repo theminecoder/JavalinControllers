@@ -127,6 +127,28 @@ public class JavalinController {
         registerParameterMapper(HeaderMap.class, (ctx, annotation, type) -> ctx.headerMap());
         registerParameterMapper(Body.class, (ctx, annotation, type) -> valueToPrimitiveConverter.apply(ctx.body(), type));
         registerParameterMapper(JsonBody.class, (ctx, annotation, type) -> JavalinJson.fromJson(ctx.body(), type));
+        registerParameterMapper(Upload.class, (ctx, annotation, type) -> ctx.uploadedFile(annotation.value()));
+        registerParameterMapper(UploadMulti.class, new ParameterMapper<UploadMulti>() {
+            @Override
+            public Object map(Context ctx, UploadMulti annotation, Class<?> type) {
+                return null; //ignored
+            }
+
+            @Override
+            public Object map(Context ctx, UploadMulti annotation, Class<?> type, Parameter parameter) {
+                if (!List.class.isAssignableFrom(type)) {
+                    throw new IllegalStateException("Parameter tagged with @UploadMulti must be a List<UploadedFile>");
+                }
+
+                Class internalType = (Class) ((ParameterizedType) parameter.getParameterizedType()).getActualTypeArguments()[0];
+                if (UploadedFile.class != internalType) {
+                    throw new IllegalStateException("Parameter tagged with @UploadMulti must be a List<UploadedFile>");
+                }
+
+                //noinspection StringEquality
+                return ctx.uploadedFiles(annotation.value());
+            }
+        });
 
         registerParameterValidator(NotNull.class, (annotation, obj) -> obj != null && (!(obj instanceof String) || ((String) obj).trim().length() > 0));
         registerParameterValidator(Range.class, (annotation, obj) -> {
