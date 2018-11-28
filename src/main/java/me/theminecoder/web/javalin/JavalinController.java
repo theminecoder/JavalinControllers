@@ -349,7 +349,7 @@ public class JavalinController {
         try {
             Object response = method.invoke(actualController, args.toArray());
 
-            if ((method.getReturnType() == Void.class && (method.getAnnotation(Before.class) != null || method.getAnnotation(After.class) != null)) //Bypass pipeline methods
+            if ((method.getReturnType() == Void.class || (method.getAnnotation(Before.class) != null || method.getAnnotation(After.class) != null)) //Bypass pipeline methods
                     && (ctx.resultStream() != null || ctx.resultFuture() != null)) {
                 return;
             }
