@@ -70,6 +70,7 @@ public class JavalinController {
 
         if (Enum.class.isAssignableFrom(type)) {
             try {
+                //noinspection unchecked
                 return type.getMethod("valueOf", String.class).invoke(null, value);
             } catch (InvocationTargetException e) {
                 return false;
@@ -117,7 +118,6 @@ public class JavalinController {
 
                 Class internalType = (Class) ((ParameterizedType) parameter.getParameterizedType()).getActualTypeArguments()[0];
 
-                //noinspection StringEquality
                 return ctx.formParams(annotation.value()).stream().map(value -> valueToPrimitiveConverter.apply(value, internalType)).collect(Collectors.toList());
             }
         });
@@ -145,7 +145,6 @@ public class JavalinController {
                     throw new IllegalStateException("Parameter tagged with @UploadMulti must be a List<UploadedFile>");
                 }
 
-                //noinspection StringEquality
                 return ctx.uploadedFiles(annotation.value());
             }
         });
@@ -313,10 +312,13 @@ public class JavalinController {
                 return;
             }
 
+            //noinspection unchecked
             arg = ((ParameterMapper<Annotation>) parameterMappers.get(valueAnnotation)).map(ctx, parameter.getAnnotation(valueAnnotation), argClass, parameter);
 
+            //noinspection Duplicates
             if (!Arrays.stream(parameter.getAnnotations()).allMatch(annotation -> {
                 if (!parameterValidators.containsKey(annotation.annotationType())) return true;
+                //noinspection unchecked
                 return ((BiPredicate<Annotation, Object>) parameterValidators.get(annotation.annotationType())).test(annotation, arg);
             })) {
                 if (optional) {
@@ -339,8 +341,10 @@ public class JavalinController {
             args.add(optional ? Optional.of(arg) : arg);
         });
 
+        //noinspection Duplicates
         if (!Arrays.stream(method.getAnnotations()).allMatch(annotation -> {
             if (!methodValidators.containsKey(annotation.annotationType())) return true;
+            //noinspection unchecked
             return ((BiPredicate<Annotation, Context>) methodValidators.get(annotation.annotationType())).test(annotation, ctx);
         })) {
             throw new BadRequestResponse("Validation failed");

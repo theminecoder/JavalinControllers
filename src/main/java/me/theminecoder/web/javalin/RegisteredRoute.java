@@ -9,7 +9,7 @@ public class RegisteredRoute {
     private Class<? extends Annotation> routeMethodType;
     private Method method;
 
-    public RegisteredRoute(String path, Class<? extends Annotation> routeMethodType, Method method) {
+    RegisteredRoute(String path, Class<? extends Annotation> routeMethodType, Method method) {
         this.path = path;
         this.routeMethodType = routeMethodType;
         this.method = method;
