@@ -73,7 +73,7 @@ public class JavalinController {
                 //noinspection unchecked
                 return type.getMethod("valueOf", String.class).invoke(null, value);
             } catch (InvocationTargetException e) {
-                return false;
+                return null;
             } catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
             }
