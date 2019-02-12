@@ -284,7 +284,7 @@ public class JavalinController {
                 try {
                     controller = controllerClass.newInstance();
                 } catch (ReflectiveOperationException e) {
-                    throw new InternalServerErrorResponse("Error creating controller object");
+                    throw new JavalinControllerException("Error creating controller object");
                 }
             }
             actualController = controller;
@@ -293,61 +293,75 @@ public class JavalinController {
 
         List<Object> args = new ArrayList<>(method.getParameterCount());
         Arrays.stream(method.getParameters()).forEach(parameter -> {
-            Object arg;
-            Class argClass = parameter.getType();
-            boolean optional = false;
+            try {
+                Object arg;
+                Class argClass = parameter.getType();
+                boolean optional = false;
 
-            if (parameter.getType() == Optional.class) {
-                argClass = (Class) ((ParameterizedType) parameter.getParameterizedType()).getActualTypeArguments()[0];
-                optional = true;
-            }
+                if (parameter.getType() == Optional.class) {
+                    argClass = (Class) ((ParameterizedType) parameter.getParameterizedType()).getActualTypeArguments()[0];
+                    optional = true;
+                }
 
-            if (primitiveObjectTypes.containsKey(argClass)) argClass = primitiveObjectTypes.get(argClass);
+                if (primitiveObjectTypes.containsKey(argClass)) argClass = primitiveObjectTypes.get(argClass);
 
-            Class<? extends Annotation> valueAnnotation = parameterMappers.keySet().stream()
-                    .filter(annotation -> parameter.getAnnotation(annotation) != null)
-                    .findFirst().orElse(null);
-            if (valueAnnotation == null) {
-                args.add(optional ? Optional.empty() : null);
-                return;
-            }
-
-            //noinspection unchecked
-            arg = ((ParameterMapper<Annotation>) parameterMappers.get(valueAnnotation)).map(ctx, parameter.getAnnotation(valueAnnotation), argClass, parameter);
-
-            //noinspection Duplicates
-            if (!Arrays.stream(parameter.getAnnotations()).allMatch(annotation -> {
-                if (!parameterValidators.containsKey(annotation.annotationType())) return true;
-                //noinspection unchecked
-                return ((BiPredicate<Annotation, Object>) parameterValidators.get(annotation.annotationType())).test(annotation, arg);
-            })) {
-                if (optional) {
-                    args.add(Optional.empty());
+                Class<? extends Annotation> valueAnnotation = parameterMappers.keySet().stream()
+                        .filter(annotation -> parameter.getAnnotation(annotation) != null)
+                        .findFirst().orElse(null);
+                if (valueAnnotation == null) {
+                    args.add(optional ? Optional.empty() : null);
                     return;
                 }
 
-                throw new BadRequestResponse("Validation failed");
-            }
+                //noinspection unchecked
+                arg = ((ParameterMapper<Annotation>) parameterMappers.get(valueAnnotation)).map(ctx, parameter.getAnnotation(valueAnnotation), argClass, parameter);
 
-            if (arg == null) {
-                args.add(optional ? Optional.empty() : null);
-                return;
-            }
+                //noinspection Duplicates
+                if (!Arrays.stream(parameter.getAnnotations()).allMatch(annotation -> {
+                    if (!parameterValidators.containsKey(annotation.annotationType())) return true;
+                    //noinspection unchecked
+                    return ((BiPredicate<Annotation, Object>) parameterValidators.get(annotation.annotationType())).test(annotation, arg);
+                })) {
+                    if (optional) {
+                        args.add(Optional.empty());
+                        return;
+                    }
 
-            if (!argClass.isAssignableFrom(arg.getClass())) {
-                throw new IllegalStateException("Error assigning argument. Expected type: " + argClass + " Got type: " + arg.getClass());
-            }
+                    throw new BadRequestResponse("Validation failed");
+                }
 
-            args.add(optional ? Optional.of(arg) : arg);
+                if (arg == null) {
+                    args.add(optional ? Optional.empty() : null);
+                    return;
+                }
+
+                if (!argClass.isAssignableFrom(arg.getClass())) {
+                    throw new IllegalStateException("Error assigning argument. Expected type: " + argClass + " Got type: " + arg.getClass());
+                }
+
+                args.add(optional ? Optional.of(arg) : arg);
+            } catch (Throwable e) {
+                if (e instanceof HttpResponseException) {
+                    throw e;
+                }
+                throw new JavalinControllerException("Error processing parameter \"" + parameter.getName() + "\" on controller method " + method, e);
+            }
         });
 
         //noinspection Duplicates
-        if (!Arrays.stream(method.getAnnotations()).allMatch(annotation -> {
-            if (!methodValidators.containsKey(annotation.annotationType())) return true;
-            //noinspection unchecked
-            return ((BiPredicate<Annotation, Context>) methodValidators.get(annotation.annotationType())).test(annotation, ctx);
-        })) {
-            throw new BadRequestResponse("Validation failed");
+        try {
+            if (!Arrays.stream(method.getAnnotations()).allMatch(annotation -> {
+                if (!methodValidators.containsKey(annotation.annotationType())) return true;
+                //noinspection unchecked
+                return ((BiPredicate<Annotation, Context>) methodValidators.get(annotation.annotationType())).test(annotation, ctx);
+            })) {
+                throw new BadRequestResponse("Validation failed");
+            }
+        } catch (Throwable e) {
+            if (e instanceof HttpResponseException) {
+                throw e;
+            }
+            throw new JavalinControllerException("Error validating controller method " + method, e);
         }
 
         try {
@@ -376,15 +390,12 @@ public class JavalinController {
 
             ctx.json(response);
         } catch (IllegalAccessException e) {
-            throw new InternalServerErrorResponse("Error invoking controller method");
+            throw new JavalinControllerException("Error invoking controller method", e);
         } catch (InvocationTargetException e) {
             if (e.getTargetException() instanceof HttpResponseException) {
                 throw (HttpResponseException) e.getTargetException();
             }
-            if (e.getTargetException() instanceof RuntimeException) {
-                throw (RuntimeException) e.getTargetException();
-            }
-            throw new RuntimeException(e.getTargetException());
+            throw new JavalinControllerException(e.getTargetException());
         }
     }
 
