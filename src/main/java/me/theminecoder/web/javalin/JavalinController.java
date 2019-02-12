@@ -64,7 +64,7 @@ public class JavalinController {
             return Double.valueOf(value);
         }
 
-        if (boolean.class.isAssignableFrom(type) || boolean.class.isAssignableFrom(type)) {
+        if (boolean.class.isAssignableFrom(type) || Boolean.class.isAssignableFrom(type)) {
             return Boolean.valueOf(value);
         }
 
