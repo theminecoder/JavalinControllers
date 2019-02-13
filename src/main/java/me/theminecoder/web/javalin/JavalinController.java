@@ -388,7 +388,6 @@ public class JavalinController {
             }
 
             if (response == null) {
-                ctx.result("null");
                 return;
             }
 
