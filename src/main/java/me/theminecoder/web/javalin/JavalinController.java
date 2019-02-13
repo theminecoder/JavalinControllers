@@ -316,18 +316,22 @@ public class JavalinController {
                 //noinspection unchecked
                 arg = ((ParameterMapper<Annotation>) parameterMappers.get(valueAnnotation)).map(ctx, parameter.getAnnotation(valueAnnotation), argClass, parameter);
 
-                //noinspection Duplicates
-                if (!Arrays.stream(parameter.getAnnotations()).allMatch(annotation -> {
-                    if (!parameterValidators.containsKey(annotation.annotationType())) return true;
-                    //noinspection unchecked
-                    return ((BiPredicate<Annotation, Object>) parameterValidators.get(annotation.annotationType())).test(annotation, arg);
-                })) {
-                    if (optional) {
-                        args.add(Optional.empty());
-                        return;
-                    }
+                try {
+                    if (!Arrays.stream(parameter.getAnnotations()).allMatch(annotation -> {
+                        if (!parameterValidators.containsKey(annotation.annotationType())) return true;
+                        //noinspection unchecked
+                        return ((BiPredicate<Annotation, Object>) parameterValidators.get(annotation.annotationType())).test(annotation, arg);
+                    })) {
+                        if (optional) {
+                            args.add(Optional.empty());
+                            return;
+                        }
 
-                    throw new BadRequestResponse("Validation failed");
+                        throw new BadRequestResponse("Validation failed");
+                    }
+                } catch (Throwable e) {
+                    if (e instanceof NullPointerException) args.add(Optional.empty());
+                    else throw e;
                 }
 
                 if (arg == null) {
