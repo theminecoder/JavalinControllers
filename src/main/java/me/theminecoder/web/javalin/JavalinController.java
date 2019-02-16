@@ -111,12 +111,12 @@ public class JavalinController {
             }
 
             @Override
-            public Object map(Context ctx, FormMulti annotation, Class<?> type, Parameter parameter) {
+            public Object map(Context ctx, FormMulti annotation, Class<?> type, Parameter originalParameter) {
                 if (!List.class.isAssignableFrom(type)) {
                     throw new IllegalStateException("Parameter tagged with @FormMulti must be a List");
                 }
 
-                Class internalType = (Class) ((ParameterizedType) parameter.getParameterizedType()).getActualTypeArguments()[0];
+                Class internalType = (Class) ((ParameterizedType) originalParameter.getParameterizedType()).getActualTypeArguments()[0];
 
                 return ctx.formParams(annotation.value()).stream().map(value -> valueToPrimitiveConverter.apply(value, internalType)).collect(Collectors.toList());
             }
@@ -135,12 +135,12 @@ public class JavalinController {
             }
 
             @Override
-            public Object map(Context ctx, UploadMulti annotation, Class<?> type, Parameter parameter) {
+            public Object map(Context ctx, UploadMulti annotation, Class<?> type, Parameter originalParameter) {
                 if (!List.class.isAssignableFrom(type)) {
                     throw new IllegalStateException("Parameter tagged with @UploadMulti must be a List<UploadedFile>");
                 }
 
-                Class internalType = (Class) ((ParameterizedType) parameter.getParameterizedType()).getActualTypeArguments()[0];
+                Class internalType = (Class) ((ParameterizedType) originalParameter.getParameterizedType()).getActualTypeArguments()[0];
                 if (UploadedFile.class != internalType) {
                     throw new IllegalStateException("Parameter tagged with @UploadMulti must be a List<UploadedFile>");
                 }
@@ -314,7 +314,7 @@ public class JavalinController {
                 }
 
                 //noinspection unchecked
-                arg = ((ParameterMapper<Annotation>) parameterMappers.get(valueAnnotation)).map(ctx, parameter.getAnnotation(valueAnnotation), argClass, parameter);
+                arg = ((ParameterMapper<Annotation>) parameterMappers.get(valueAnnotation)).map(ctx, parameter.getAnnotation(valueAnnotation), argClass, parameter, optional);
 
                 try {
                     if (!Arrays.stream(parameter.getAnnotations()).allMatch(annotation -> {
