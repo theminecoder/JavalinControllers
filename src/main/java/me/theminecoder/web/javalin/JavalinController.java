@@ -3,6 +3,7 @@ package me.theminecoder.web.javalin;
 import io.javalin.*;
 import io.javalin.json.JavalinJson;
 import me.theminecoder.web.javalin.annotations.Controller;
+import me.theminecoder.web.javalin.annotations.EnumSearchType;
 import me.theminecoder.web.javalin.annotations.methods.*;
 import me.theminecoder.web.javalin.annotations.parameters.*;
 import me.theminecoder.web.javalin.annotations.parameters.conditions.NotNull;
@@ -70,8 +71,15 @@ public class JavalinController {
 
         if (Enum.class.isAssignableFrom(type)) {
             try {
-                //noinspection unchecked
-                return type.getMethod("valueOf", String.class).invoke(null, value);
+                EnumSearchType searchType = (EnumSearchType) type.getAnnotation(EnumSearchType.class);
+                if (searchType == null || searchType.value() == EnumSearchType.Type.CASE_SENSITIVE) {
+                    //noinspection unchecked
+                    return type.getMethod("valueOf", String.class).invoke(null, value);
+                } else {
+                    return Arrays.stream((Enum[]) type.getMethod("values").invoke(null))
+                            .filter(enumValue -> enumValue.name().equalsIgnoreCase(value))
+                            .findFirst().orElse(null);
+                }
             } catch (InvocationTargetException e) {
                 return null;
             } catch (ReflectiveOperationException e) {
